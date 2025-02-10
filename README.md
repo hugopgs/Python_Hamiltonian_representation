@@ -40,9 +40,9 @@ where:
 
 The Heisenberg model includes interactions in all three Pauli bases:
 
-$H = -J \sum_{i} (X_i X_{i+1} + Y_i Y_{i+1} + Z_i Z_{i+1})$
+$H = -\sum_{i} (J_x X_i X_{i+1} +J_y Y_i Y_{i+1} +J_z Z_i Z_{i+1})$
 
-where $J$ defines the interaction strength. This model describes quantum magnetism and spin chain dynamics.
+where $J_x,J_y,J_z$ defines the interactions strength. This model describes quantum magnetism and spin chain dynamics.
 
 ### 3. Spin Chain Hamiltonian
 

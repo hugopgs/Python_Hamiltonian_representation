@@ -28,33 +28,33 @@ The `Hamiltonian` class is the core structure for defining a quantum Hamiltonian
 
 The Ising model describes a system of interacting spins with nearest-neighbor interactions. The Hamiltonian is given by:
 
-\(H = -J \sum_{i} Z_i Z_{i+1} - d \sum_{i} P_i\)
+$H = -J \sum_{i} Z_i Z_{i+1} - d \sum_{i} P_i$
 
 where:
 
-- `J` controls the interaction strength between neighboring spins.
-- `d` represents the strength of an external field.
-- `P` is either `X` (for a transverse field) or `Z` (for a longitudinal field).
+- $J$ controls the interaction strength between neighboring spins.
+- $d$ represents the strength of an external field.
+- $P$ is either $X$ (for a transverse field) or $Z$ (for a longitudinal field).
 
 ### 2. Heisenberg Hamiltonian
 
 The Heisenberg model includes interactions in all three Pauli bases:
 
-\(H = -J \sum_{i} (X_i X_{i+1} + Y_i Y_{i+1} + Z_i Z_{i+1})\)
+$H = -J \sum_{i} (X_i X_{i+1} + Y_i Y_{i+1} + Z_i Z_{i+1})$
 
-where `J` defines the interaction strength. This model describes quantum magnetism and spin chain dynamics.
+where $J$ defines the interaction strength. This model describes quantum magnetism and spin chain dynamics.
 
 ### 3. Spin Chain Hamiltonian
 
 A more general spin chain model allows different types of interactions and external fields:
 
-\(H = \sum_{i,j} J_{ij} P_i P_j + \sum_i h_i P_i\)
+$H = \sum_{i,j} J_{ij} P_i P_j + \sum_i h_i P_i$
 
 where:
 
-- `J_{ij}` defines interaction strengths.
-- `h_i` represents local field strengths.
-- `P` can be any Pauli operator (`X`, `Y`, or `Z`).
+- $J_{ij}$ defines interaction strengths.
+- $h_i$ represents local field strengths.
+- $P$ can be any Pauli operator ($X$, $Y$, or $Z$).
 
 ## Usage
 

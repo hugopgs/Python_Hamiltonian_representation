@@ -20,7 +20,7 @@ The `Hamiltonian` class is the core structure for defining a quantum Hamiltonian
 - `coefs(t)`: Extracts the coefficients of the Hamiltonian terms at time `t`.
 - `l1_norm(T)`: Computes the integral of the L1 norm of the coefficients over time.
 - `get_matrix()`: Constructs the Hamiltonian matrix representation.
-- `gen_quantum_circuit(t, init_state)`: Generates a quantum circuit that implements the Hamiltonian evolution at time `t`.
+- `gen_quantum_circuit(t, init_state)`: Generates a Qiskit quantum circuit that implements the Hamiltonian evolution at time `t`.
 
 ## Types of Hamiltonians
 

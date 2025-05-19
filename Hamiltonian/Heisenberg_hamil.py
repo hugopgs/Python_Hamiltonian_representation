@@ -1,107 +1,77 @@
+# Written by: Hugo PAGES
+# Date: 2024-01-05
+
+# Standard library imports
 from dataclasses import dataclass
 from itertools import product
-import numpy as np
-from scipy import integrate
 from typing import Callable, List, Tuple
-from itertools import product
-from Hamiltonian.Hamiltonian import Hamiltonian
 import math as math
 
+# Third-party imports
+import numpy as np
+from scipy import integrate
+import scipy.sparse as sp
+from scipy.sparse.linalg import eigsh
+from itertools import product
+
+
+# Local application imports
+from .Hamiltonian import Hamiltonian
 
 
 class Heisenberg_Hamil(Hamiltonian):
-    """ Heisenberg Hamiltonian defined as : H_{Heisenberg}=\sum_{n=0}^{numQs-1}(jx.X_nX_{n+1}+jy.Y_nY_{n+1}+jz.Z_nZ_{n+1}) 
-    Args:
-        Hamiltonian (_type_): _description_
     """
+    Heisenberg_Hamil is a subclass of Hamiltonian that represents a time-independent 
+    Heisenberg spin chain Hamiltonian for `n` qubits.
 
-    
-    def __init__(self, n:int, jx:float,jy:float,jz: float, boundarie_conditions:bool=False):
+    This model includes interactions of the form:
+        Jx * XX + Jy * YY + Jz * ZZ
+    between neighboring qubits, with the option to enable periodic boundary conditions.
+
+    Parameters:
+    - n (int): Number of qubits (spins) in the chain.
+    - jx, jy, jz (float): Coupling constants for the XX, YY, and ZZ terms.
+    - boundarie_conditions (bool): If True, periodic boundary conditions are used;
+    otherwise, open boundary conditions apply.
+    The coefficients are constant in time but structured as functions to remain compatible 
+    with the parent Hamiltonian class.
+    """
+    def __init__(self, n: int, jx: float, jy: float, jz: float, boundarie_conditions: bool = False):
+        self.jx=jx
+        self.jy=jy
+        self.jz=jz
         def Jx(t):
-            return 1*jx*t
+            return jx
+
         def Jy(t):
-            return 1*jy*t
+            return jy
+
         def Jz(t):
-            return 1*jz*t
+            return jz
         if boundarie_conditions:
-             terms = [
-                (gate, [k, (k + 1)%n], Jx if gate == "XX" else Jy if gate == "YY" else Jz)
+            terms = [
+                (gate, [k, (k + 1) % n], Jx if gate ==
+                 "XX" else Jy if gate == "YY" else Jz)
                 for k, gate in product(range(n), ["XX", "YY", "ZZ"])
             ]
         else:
             terms = [
-                (gate, [k, k + 1], Jx if gate == "XX" else Jy if gate == "YY" else Jz)
+                (gate, [k, k + 1], Jx if gate ==
+                 "XX" else Jy if gate == "YY" else Jz)
                 for k, gate in product(range(n-1), ["XX", "YY", "ZZ"])
             ]
+        self.name = f"Heisenberg_Jx{jx}_Jy{jy}_Jz{jz}_nq{n}"
+        super().__init__(n, terms)
 
+        
+    def get_trotter_steps_from_depth(self, depth: int) -> int:
+        """
+        Compute the number of Trotter steps based on the desired circuit depth.
 
-        super().__init__(n, terms)  
-    
-    def all_dimer_coverings(self,n):
-        """
-        Generate all perfect matchings (dimer coverings) of the set {0,1,...,n-1}.
-        Each matching is returned as a list of pairs (i, j) with i < j.
-        """
-        
-        if n == 0:
-            yield []
-        else:
-            first = 0
-            for partner in range(1, n):
-                pair = (first, partner)
-                others = [x for x in range(n) if x not in pair]
-                
-                for rest in self.all_dimer_coverings(len(others)):
-                    mapping = {}
-                    c = 0
-                    for x in range(n):
-                        if x not in pair:
-                            mapping[c] = x
-                            c += 1
-                    
-                    mapped_rest = [(mapping[a], mapping[b]) for (a, b) in rest]
-                    yield [pair] + mapped_rest
+        Args:
+            depth (int): Desired circuit depth.
 
-    def ground_state(self):
+        Returns:
+            int: Number of Trotter steps.
         """
-        Builds and returns the resonating-valence-bond (RVB) state for n qubits
-        (n even) summed over all dimer coverings, as a NumPy array of length 2^n
-        in the computational (Z) basis.
-        
-        The returned state is normalized.
-        """
-        n=self.nqubits
-        if n % 2 != 0:
-            raise ValueError("n must be even to form perfect dimer coverings.")
-        
-        dim = 2**n
-        psi = np.zeros(dim, dtype=np.complex128)
-        pair_factor = (1.0 / math.sqrt(2))**(n//2)
-        
-        for D in self.all_dimer_coverings(n):
-            for b in range(dim):
-                csign = 1  
-                valid = True
-                for (i, j) in D:
-                    bit_i = (b >> i) & 1
-                    bit_j = (b >> j) & 1
-                    if bit_i == 0 and bit_j == 1:
-                        csign *= +1
-                    elif bit_i == 1 and bit_j == 0:
-                        csign *= -1
-                    else:
-                        valid = False
-                        break
-                if valid:
-                    psi[b] += pair_factor * csign
-        
-        norm = np.linalg.norm(psi)
-        if norm > 1e-15:
-            psi /= norm
-        
-        return psi
-
-      
-    
-    
-    
+        return int((depth -(3*self.nqubits-9))/6)

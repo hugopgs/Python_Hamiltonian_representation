@@ -2,7 +2,8 @@
 # Date: 2024-01-05
 
 # Standard library imports
-import math
+import re
+import math, time
 from dataclasses import dataclass
 from itertools import product
 from typing import Callable, List, Tuple, Union
@@ -35,12 +36,18 @@ class Hamiltonian:
     - Provides eigenvalues and energy gaps for analyzing the Hamiltonian spectrum.
     """
     
-    nqubits: int
-    terms: List[Tuple[str, List[int], Callable[[float], float]]]
+    nqubits: int #number of qubits
+    terms: List[Tuple[str, List[int], Callable[[float], float]]] #terms of the Hamiltonian
+    circ : QuantumCircuit= None # Quantum circuit representation of the hamiltonian
+    serialize : bool= False #if the quantum circuit is serialize or not 
+    H: np.ndarray = None #Matrix representation of the Hamiltonian 
+    
+    
     
     def __post_init__(self):
         print("The number of qubit:" + str(self.nqubits))
         print("Number of terms in the Hamiltonian:" + str(len(self.terms)))
+
 
     def get_term(self, t)-> list[tuple]:
         """return the terms of the Hamiltonian at a time t  
@@ -127,7 +134,7 @@ class Hamiltonian:
             return f"Hamiltonian object : nq={self.nqubits}, number of terms :{len(self.terms)}"
 
 
-    def matrix(self)->np.ndarray:
+    def matrix(self, t=0)->np.ndarray:
         """Return the matrix representation of the hamiltonian 
 
         Returns:
@@ -158,7 +165,7 @@ class Hamiltonian:
             if term[0] == 'ZZ':
                 tmp[term[1][0]] = Z
                 tmp[term[1][1]] = Z
-            H+=(term[2](1)*reduce(lambda A, B: sp.kron(A, B, format='csr'), tmp))
+            H+=(term[2](t)*reduce(lambda A, B: sp.kron(A, B, format='csr'), tmp))
         return H
 
     def eigenvalues(self) -> np.ndarray:
@@ -174,27 +181,14 @@ class Hamiltonian:
         eigval_list[np.abs(eigval_list) < 1.e-11] = 0
         return eigval_list.real
     
-    def get_ground_first_excited_state(self, threshold: float = 1e-2):
-        H = self.matrix()
-        vals, vecs = eigsh(H, k=2, which='SA')
+    def get_ground_and_excited_state(self,n=1,t=0, threshold: float = 1e-2, get_dict: bool = False) -> Tuple[float, float, np.ndarray, np.ndarray]:
+        H = self.matrix(t)
+        vals, vecs = eigsh(H, k=n+1, which='SA')
         ground_energy = vals[0]
-        first_excited_energy = vals[1]
+        first_excited_energy = vals[n]
         ground_state = vecs[:, 0]
-        first_excited_state = vecs[:, 1]
-
-        # Z basis mapping
-        z_basis = [''.join(state) for state in product('01', repeat=self.nqubits)]
-        def get_vector_dict(state_vector, basis_labels, threshold):
-            return {
-                basis_labels[i]: complex(state_vector[i])
-                for i in range(len(state_vector))
-                if abs(state_vector[i])**2 > threshold
-            }
-
-        ground_components = get_vector_dict(ground_state, z_basis, threshold)
-        excited_components = get_vector_dict(first_excited_state, z_basis, threshold)
-
-        return ground_energy, first_excited_energy, ground_components, excited_components
+        excited_state = vecs[:, n]
+        return ground_energy, first_excited_energy, ground_state, excited_state
     
     def energy_gap(self)->np.ndarray:
         """Calculate the energy gap between different energy levels.
@@ -214,12 +208,13 @@ class Hamiltonian:
         unique_gaps[np.abs(unique_gaps) < 1.e-11] = 0
         return np.sort(unique_gaps)
 
+###########################################################################################################################
+##################################################### Quantum circuit #####################################################
+###########################################################################################################################
 
 
 
-
-
-    def gen_quantum_circuit(self, T: float, init_state: Union[np.ndarray, list, QuantumCircuit] = None, N_Trotter_steps: int = 1000, serialize=False) -> QuantumCircuit:
+    def gen_quantum_circuit(self, T: float, init_state: Union[np.ndarray, list, QuantumCircuit] = None, N_Trotter_steps: int = 1000, serialize=False, decompose : bool=False) -> QuantumCircuit:
         """Generate a qiskit quantum circuite given a list of gates.
         Args:
             gates (tuple[str, list[int], float]): The list of gates to generate the circuit from, in the form of : ("Gate", [nq1, nq2], parameters)
@@ -246,7 +241,10 @@ class Hamiltonian:
 
         if isinstance(init_state, QuantumCircuit):
             circ = init_state.compose(circ, [i for i in range(nq)])
-
+        if decompose :
+            circ=circ.decompose(["rzz"])
+        self.circ=circ
+        self.serialize=serialize
         return circ
 
     def __rgate(self, pauli:str, r: float):
@@ -314,3 +312,38 @@ class Hamiltonian:
                     print(
                         "gen_Qasm_circuit: ERROR only working with 1 and 2 qubits gates")
         return qasm_circ
+
+
+    def get_depth(self):
+        try : 
+            if isinstance(self.circ, str):
+                qreg_match = re.search(r"qreg\s+(\w+)\[(\d+)\];", self.circ)
+                if not qreg_match:
+                    raise ValueError("No qreg declaration found.")
+
+                prefix, size = qreg_match.group(1), int(qreg_match.group(2))
+                qubit_depths = [0] * size
+                max_depth = 0
+
+                # Only consider these gates
+                gate_pattern = re.compile(
+                    r"(rx|rz|rxx|ryy|rzz)\s*\([^)]*\)\s+([a-zA-Z_]+\[\d+\](?:\s*,\s*[a-zA-Z_]+\[\d+\])?)\s*;",
+                    re.IGNORECASE
+                )
+
+                for match in gate_pattern.finditer(self.circ):
+                    gate = match.group(1).lower()
+                    qubit_args = match.group(2).replace(" ", "")
+                    qubits = [int(q.split('[')[1][:-1]) for q in qubit_args.split(",")]
+
+                    current_layer = max(qubit_depths[q] for q in qubits) + 1
+
+                    for q in qubits:
+                        qubit_depths[q] = current_layer
+
+                    max_depth = max(max_depth, current_layer)
+            if isinstance(self.circ, QuantumCircuit):
+                return self.circ.depth()
+        except Exception as e: 
+            print("error : ", e)
+ 

@@ -28,13 +28,12 @@ The `Hamiltonian` class is the core structure for defining a quantum Hamiltonian
 
 The Ising model describes a system of interacting spins with nearest-neighbor interactions. The Hamiltonian is given by:
 
-$H = -J \sum_{i} Z_i Z_{i+1} - d \sum_{i} P_i$
+$H = -J \sum_{i} Z_i Z_{i+1} - d \sum_{i} X_i- h \sum_{i} Z_i$
 
 where:
 
 - $J$ controls the interaction strength between neighboring spins.
-- $d$ represents the strength of an external field.
-- $P$ is either $X$ (for a transverse field) or $Z$ (for a longitudinal field).
+- $d$ and $h$ represents the strength of an external field either transverse or longitudinal.
 
 ### 2. Heisenberg Hamiltonian
 
@@ -65,13 +64,13 @@ where:
 2. Create an instance of a Hamiltonian:
    ```python
    from ising_hamiltonian import Ising_Hamil
-   H = Ising_Hamil(n=4, J=1.0, d=0.5, transverse=True)
+   H = Ising_Hamil(n=4, transverse=1.0, longitudinal=0.5, fully_connected=False, bundarie_conditions=True)
    ```
 3. Generate the Hamiltonian matrix:
    ```python
    matrix = H.get_matrix()
    ```
-4. Create a quantum circuit representation:
+4. Create a qiskit quantum circuit representation:
    ```python
    qc = H.gen_quantum_circuit(t=1.0)
    print(qc)
